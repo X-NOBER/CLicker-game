@@ -1,349 +1,182 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>p5.js Clicker — Animated Edition</title>
-  <style>
-    html,body{height:100%;margin:0;background:#0b1020;color:#e6eef8;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    #defaultCanvas0{display:block;margin:0 auto}
-    .ui-sans{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    .hint{position:fixed;left:12px;bottom:12px;opacity:.8}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultimate Cookie Clicker</title>
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; background:#111; color:#fff; font-family:sans-serif;}
+  canvas { display:block; margin:0 auto; }
+  #ui { position:absolute; top:10px; left:10px; color:white; font-family:sans-serif; }
+  button { margin:5px; padding:5px 10px; font-size:14px; }
+</style>
 </head>
 <body>
-  <div class="hint ui-sans">Click the monster! Press <strong>U</strong> to toggle upgrades. <strong>R</strong> to reset.</div>
+
+<div id="ui"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.min.js"></script>
 <script>
-// --- CONFIG ---
-const GAME_WIDTH = 960;
-const GAME_HEIGHT = 640;
 
-let player = {
-  gold: 0,
-  dps: 0,
-  clickPower: 1,
-  critChance: 0.05
-};
-
-let enemy;
+let cookies = 0;
+let cookiesPerClick = 1;
+let cookiesPerSecond = 0;
+let stageIndex = 0;
+let auraPulse = 0;
+let evolveAnim = 0;
 let particles = [];
-let floats = [];
-let upgrades = [];
-let showUpgrades = true;
-let lastAutoTick = 0;
+
+const stages = [
+  {name:"Basic", threshold:0, auraColor: [214,167,110,80], img:null, dataUrl:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAvElEQVR4nO3aUQqDMAwF0Mf//4mDbVui4E8Ej8kyXzDnlOqlH1wl0QAAAAAAAAAAAADAu2wfJweN6zUPFPh4/vFu3EtGqccql1zTj6qgx8Zb7uvnpl0TqX6M6KclPL7h2e0v4i4lT1Xlf3FfKs5X3QPKnDHDt29ycqTkzVv5cxS3MUrjz1D9TxhHtmHu1xZVu3S8wYyhnxNl6bnOPoWb4BGPYr+4z/jc8y5c5N58PDm7e2koy4Pq+6YHGLMx4ZynpcR4+ohr13bbWcRZsEZZ7dEJPMT/Y5wfy3lmnwAAAAAAAAAAAAAAAP4Crv8CzCMzkAKyZX4AAAAASUVORK5CYII="},
+  {name:"Golden", threshold:1000, auraColor: [255,242,142,90], img:null, dataUrl:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABM0lEQVR4nO3YwQ3CMAwF0Pz/n8kzW9AVC8UJrKOzZPQxPcuDYm0GAAAAAAAAAAAAAABwvtV/JF6axtuVDpYbS0Qir1f3Ueu0cmqpZfVU+TjXlc6ypzn2Tpb9RUdXXVz9zHeoFo+hJdbXJc1IfLNjsu3Xb7cGOr8TluY8j5b+yyfdTkXzbZfxfy3muG+E+2zL6oTn3D5GzwAAAAAAAAAAAAAAAL6FF4GmPj+HW5AAAAAASUVORK5CYII="},
+  {name:"Diamond", threshold:100000, auraColor: [168,230,255,100], img:null, dataUrl:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAvElEQVR4nO3aUQqDMAwF0Pz/n8kzW9AVC8UJrKOzZPQxPcuDYm0GAAAAAAAAAAAAAABwvtV/JF6axtuVDpYbS0Qir1f3Ueu0cmqpZfVU+TjXlc6ypzn2Tpb9RUdXXVz9zHeoFo+hJdbXJc1IfLNjsu3Xb7cGOr8TluY8j5b+yyfdTkXzbZfxfy3muG+E+2zL6oTn3D5GzwAAAAAAAAAAAAAAAL6FF4GmPj+HW5AAAAAASUVORK5CYII="},
+  {name:"Cosmic", threshold:10000000, auraColor: [200,150,255,100], img:null, dataUrl:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABY0lEQVR4nO3aS07DMBBF0ZP8/zdtE9RSXFuARXIdSuNMGRMNG6oAAAAAAAAAAAAAAAD8edty2+6cnKOvDQhijN3eN5Uas2nKsbU5SmzX8hNV8taUy/Xl+uF1+vPO6v1HbCeUqytbmWe5m6c6J2dVJ/Nh+z82b0s3zLb8o3RTPbt7z0Or4nyDzb8z7lA+Zo+FZ+rzp0+jpeXubH96zpq6stNfbT6E4N7KmfKyb9ljt4p6nM1vRkn7ev7Gu7RnrLE6b6VhfWwz8whhmuVeE0aa6F9vbdszffG4N8wz3JknYV7aazx3ArX3PntpR2cwAAAAAAAAAAAAAAAO5ZHn+ObhRJ2I7CNQAAAABJRU5ErkJggg=="},
+  {name:"God", threshold:1000000000, auraColor: [255,248,201,120], img:null, dataUrl:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABUElEQVR4nO3aQQrDMAwF0Of9/5nsFGqChyJcNyc3W1DZo03GpQAAAAAAAAAAAAAAAPBt7Xbzp9yJqM3xKHaMIpXbtq9P8n4bR7tnN3U9xR+7qlR52bPjNqzrd6S8O+sn5Tt7Hc0I2p8lT7q5+P3yTqxX+VreafNe0J1zlnF6fl87XW2LXn94r+6h2p7rY7m93HKXlM+N5nxr3lH4Kju2afEsr7nB3TVmyr9XWc3brDydK4oXHNjPAAAAAAAAAAAAAAAPA5F6A1TgLtxDb4mwAAAABJRU5ErkJggg=="}
+];
+
+const buildings = [
+  {name:"Cursor", baseCost:15, cps:0.1, amount:0},
+  {name:"Grandma", baseCost:100, cps:1, amount:0},
+  {name:"Farm", baseCost:1100, cps:8, amount:0},
+  {name:"Mine", baseCost:12000, cps:47, amount:0}
+];
+
+function preload(){
+  for(let s of stages) s.img = loadImage(s.dataUrl);
+}
 
 function setup(){
-  createCanvas(GAME_WIDTH, GAME_HEIGHT);
-  pixelDensity(1);
-  initEnemy();
-  initUpgrades();
-}
-
-function initEnemy(){
-  enemy = {
-    maxHp: 1000,
-    hp: 1000,
-    wobble: 0,
-    wSpeed: 0.02,
-    size: 220,
-    regenTimer: 0
-  };
-}
-
-function initUpgrades(){
-  upgrades = [
-    {id:1,name:'Power Click', cost:10, level:0, max:50, effect:()=>{player.clickPower += 1}, anim:0},
-    {id:2,name:'Auto Tap', cost:100, level:0, max:20, effect:()=>{player.dps += 2}, anim:0},
-    {id:3,name:'Criticals', cost:450, level:0, max:10, effect:()=>{player.critChance = min(0.75, player.critChance + 0.02)}, anim:0},
-    {id:4,name:'Big Swing', cost:2000, level:0, max:5, effect:()=>{player.clickPower += 25}, anim:0}
-  ];
+  createCanvas(windowWidth, windowHeight);
+  textAlign(CENTER, CENTER);
+  imageMode(CENTER);
+  setInterval(() => {
+    let totalCPS = cookiesPerSecond;
+    for(let b of buildings) totalCPS += b.cps*b.amount;
+    cookies += totalCPS;
+  }, 1000);
+  createUI();
 }
 
 function draw(){
-  backgroundGradient();
-  drawParallaxBG();
-  drawHUD();
-  drawEnemy();
-  updateParticles();
-  updateFloats();
-  updateAutoDamage();
-}
+  background(20);
 
-function backgroundGradient(){
-  for(let y=0;y<height;y++){
-    let t = y/height;
-    let c = lerpColor(color('#071024'), color('#0f345b'), t);
-    stroke(c); line(0,y,width, y);
+  // Aura
+  auraPulse += 0.05;
+  let aura = stages[stageIndex].auraColor;
+  let pulse = sin(auraPulse)*20 + 60;
+  for(let i=3;i>0;i--){
+    fill(aura[0],aura[1],aura[2],aura[3]*(i/3));
+    ellipse(width/2, height/2, 250 + pulse*i, 250 + pulse*i);
   }
-}
 
-// Simple parallax animated blobs
-let bgOffset=0;
-function drawParallaxBG(){
-  bgOffset += 0.002;
-  push();
-  translate(width/2, height/2 + 60);
-  noStroke();
-  for(let i=0;i<6;i++){
-    let s = 140 + i*80;
-    let off = sin(frameCount*0.01 + i)*40;
-    fill(255, 255, 255, 8 - i);
-    ellipse(off + sin(frameCount*0.01*i)*40, -i*20, s + sin(frameCount*0.03+i)*20, s*0.6);
+  // Evolution check
+  for(let i=stages.length-1;i>=0;i--){
+    if(cookies >= stages[i].threshold){
+      if(stageIndex!==i) evolveAnim = 1;
+      stageIndex=i;
+      break;
+    }
   }
-  pop();
-}
 
-function drawHUD(){
-  // Gold
+  // Evolution animation
+  if(evolveAnim>0) evolveAnim-=0.05;
+  let scaleLerp = map(evolveAnim,0,1,1,1.3);
+
+  // Cookie draw
   push();
-  fill(255); textSize(20); textAlign(LEFT); text('Gold: ' + Math.floor(player.gold), 18, 30);
-  text('DPS: ' + player.dps, 18, 56);
-  text('Click: ' + player.clickPower, 18, 82);
+  translate(width/2, height/2);
+  let pulseSize = 1 + sin(frameCount*0.05)*0.02;
+  image(stages[stageIndex].img, 0,0,200*pulseSize*scaleLerp,200*pulseSize*scaleLerp);
   pop();
 
-  // Upgrades panel
-  if(showUpgrades){
-    drawUpgradesPanel();
+  // Particle trails
+  for(let p of particles){
+    p.update();
+    p.show();
   }
-}
+  particles = particles.filter(p => !p.finished());
 
-function drawUpgradesPanel(){
-  const w = 300; const h = 260; const x = width - w - 18; const y = 18;
-  push();
-  fill(10, 14, 30, 220); stroke(255, 15); strokeWeight(1);
-  rect(x,y,w,h,12);
-  noStroke(); fill(200); textSize(18); textAlign(LEFT); text('Upgrades', x+12, y+28);
-
-  for(let i=0;i<upgrades.length;i++){
-    let u = upgrades[i];
-    let bx = x+12; let by = y+44 + i*52; let bw = w - 24; let bh = 44;
-    // floating animation
-    u.anim = lerp(u.anim, 0, 0.08);
-    if(u.hover) u.anim = 8;
-    push();
-    translate(0, u.anim);
-    stroke(255,10); fill(255,255,255,6); rect(bx,by,bw,bh,8);
-    fill(230); textSize(14); text(u.name + ' x' + u.level, bx+12, by+18);
-    fill(160); textSize(12); text('Cost: ' + Math.floor(u.cost), bx+12, by+34);
-    // buy button
-    let btnx = bx + bw - 82; let btny = by + 8; let btnw = 70; let btnh = 28;
-    if(mouseIsInRect(btnx,btny,btnw,btnh)){
-      fill(0,150,255); u.hover = true;
-    } else { fill(255,255,255,14); u.hover = false; }
-    rect(btnx,btny,btnw,btnh,6);
-    fill(10); textAlign(CENTER, CENTER); text('Buy', btnx+btnw/2, btny+btnh/2+1);
-    pop();
-  }
-  pop();
+  // Text
+  fill(255);
+  textSize(28);
+  text(`Cookies: ${floor(cookies)}`, width/2, height-100);
+  textSize(18);
+  text(`Stage: ${stages[stageIndex].name}`, width/2, height-60);
+  text(`CPS: ${getCPS().toFixed(1)}`, width/2, height-40);
+  text(`CPC: ${cookiesPerClick}`, width/2, height-20);
 }
 
 function mousePressed(){
-  // clicking enemy area
-  let ex = width/2; let ey = height/2 - 20; let r = enemy.size/2;
-  if(dist(mouseX,mouseY,ex,ey) < r){
-    doClickDamage(mouseX,mouseY);
-  }
-  // upgrades buy check
-  if(showUpgrades){
-    const w = 300; const x = width - w - 18; const y = 18;
-    for(let i=0;i<upgrades.length;i++){
-      let bx = x+12; let by = y+44 + i*52; let bw = w - 24; let bh = 44;
-      let btnx = bx + bw - 82; let btny = by + 8; let btnw = 70; let btnh = 28;
-      if(mouseIsInRect(btnx,btny,btnw,btnh)){
-        buyUpgrade(upgrades[i]);
-      }
-    }
+  if(dist(mouseX, mouseY, width/2, height/2) < 100){
+    cookies += cookiesPerClick;
+    evolveAnim = 0.5;
+    spawnParticles();
   }
 }
 
-function doClickDamage(mx,my){
-  // crit check
-  let isCrit = random() < player.critChance;
-  let amt = player.clickPower * (isCrit ? 3 : 1);
-  enemy.hp = max(0, enemy.hp - amt);
-  spawnParticles(mx, my, amt, isCrit);
-  spawnFloat(mx, my - 20, Math.floor(amt) + (isCrit? '!' : ''));
-  // enemy reaction
-  enemy.wobble = 18;
-  player.gold += amt;
-}
-
-function spawnParticles(x,y,amt,crit){
-  let n = constrain(6 + floor(sqrt(amt)), 6, 50);
-  for(let i=0;i<n;i++){
-    particles.push(new Particle(x, y, crit));
+// Particle system
+function spawnParticles(){
+  let aura = stages[stageIndex].auraColor;
+  for(let i=0;i<10;i++){
+    particles.push(new Particle(width/2, height/2, aura));
   }
 }
 
-function spawnFloat(x,y,txt){
-  floats.push(new Floaty(x,y,txt));
-}
-
-function updateAutoDamage(){
-  // autos every second
-  if(millis() - lastAutoTick > 1000){
-    if(player.dps > 0){
-      enemy.hp = max(0, enemy.hp - player.dps);
-      player.gold += player.dps;
-      spawnFloat(width/2, height/2 - 40, '-' + player.dps);
-    }
-    lastAutoTick = millis();
-  }
-}
-
-function buyUpgrade(u){
-  if(player.gold >= u.cost && u.level < u.max){
-    player.gold -= u.cost;
-    u.level++;
-    // scale cost
-    u.cost = floor(u.cost * 1.6 + u.level * 2);
-    // apply immediate effect
-    if(u.id===1) player.clickPower += 1;
-    if(u.id===2) player.dps += 2;
-    if(u.id===3) player.critChance = min(0.75, player.critChance + 0.02);
-    if(u.id===4) player.clickPower += 25;
-    u.anim = -6; // pop animation
-    spawnParticles(mouseX || width-150, mouseY || 60, 8, false);
-  }
-}
-
-function drawEnemy(){
-  push();
-  translate(width/2, height/2 - 20);
-  // wobble
-  enemy.wobble = lerp(enemy.wobble, 0, 0.12);
-  let wob = sin(frameCount * enemy.wSpeed) * 6 + enemy.wobble * 0.4;
-
-  // shadow
-  push();
-  translate(0, enemy.size*0.34);
-  fill(0, 0, 0, 80);
-  ellipse(0,0, enemy.size * 1.05 + sin(frameCount*0.05)*6, enemy.size*0.35);
-  pop();
-
-  // body with breathing animation
-  let hpRatio = enemy.hp/enemy.maxHp;
-  let pul = map(sin(frameCount*0.04), -1,1,0.94,1.06);
-  let bodySize = enemy.size * pul * (1 + (1-hpRatio)*0.12);
-  noStroke();
-  // colorful layered body
-  for(let i=0;i<4;i++){
-    let s = bodySize * (1 - i*0.12);
-    fill(120 + i*30, 60 + i*20, 200 - i*20, 220 - i*30);
-    ellipse(wob*0.8, -i*6, s, s*0.9);
-  }
-
-  // eyes and face anim
-  let eyeY = map(hpRatio, 0,1,6,-8);
-  fill(255); ellipse(-30 + wob*0.5, eyeY, 36, 24);
-  ellipse(30 + wob*0.5, eyeY, 36, 24);
-  fill(20); ellipse(-30 + wob*0.5, eyeY, 12, 12);
-  ellipse(30 + wob*0.5, eyeY, 12, 12);
-
-  // mouth
-  fill(10); arc(0, 26 + wob*0.2, bodySize*0.5, 60 + (1-hpRatio)*40, 0, PI);
-
-  // HP bar over head
-  push(); translate(0, -bodySize*0.62);
-  drawHpBar(enemy.hp, enemy.maxHp, 240, 12);
-  pop();
-
-  pop();
-
-  // if dead, respawn slowly with animation
-  if(enemy.hp <= 0){
-    enemy.regenTimer += deltaTime;
-    if(enemy.regenTimer > 1600){
-      // regenerated with stronger hp
-      let bonus = floor(1 + random()*3);
-      enemy.maxHp = max(100, floor(enemy.maxHp * (1 + random()*0.15)));
-      enemy.hp = enemy.maxHp;
-      enemy.regenTimer = 0;
-      // reward player
-      player.gold += floor(enemy.maxHp*0.25);
-      // explosion particles
-      for(let i=0;i<80;i++) particles.push(new Particle(width/2, height/2 - 20, true));
-    }
-  }
-}
-
-function drawHpBar(hp, maxhp, w, h){
-  let x = -w/2;
-  stroke(255,40); strokeWeight(1); fill(255,12); rect(x-2, -4, w+4, h+8, 8);
-  noStroke();
-  fill(120, 200, 80);
-  let ratio = constrain(hp/maxhp, 0,1);
-  rect(x, 0, w*ratio, h, 6);
-  fill(255); textSize(12); textAlign(CENTER, CENTER);
-  text(Math.floor(hp) + ' / ' + Math.floor(maxhp), 0, h/2 + 2);
-}
-
-// --- Particles system ---
 class Particle{
-  constructor(x,y,crit=false){
-    this.pos = createVector(x + random(-8,8), y + random(-8,8));
-    this.vel = p5.Vector.fromAngle(random(TWO_PI)).mult(random(1,6));
-    this.life = random(400, 1400);
-    this.age = 0;
-    this.size = random(3,8) * (crit?2:1);
-    this.crit = crit;
-    this.col = color(random(150,255), random(120,255), random(80,220), 240);
+  constructor(x,y,colorArr){
+    this.pos = createVector(x,y);
+    let angle = random(TWO_PI);
+    let speed = random(1,3);
+    this.vel = createVector(cos(angle)*speed, sin(angle)*speed);
+    this.alpha = 255;
+    this.colorArr = colorArr;
   }
-  update(dt){
-    this.age += dt;
-    this.pos.add(p5.Vector.mult(this.vel, dt/16));
-    this.vel.mult(0.96);
+  update(){
+    this.pos.add(this.vel);
+    this.alpha -= 5;
   }
-  draw(){
-    let t = constrain(this.age / this.life, 0,1);
-    push(); noStroke();
-    let alpha = map(t, 0,1, 255, 0);
-    fill(red(this.col), green(this.col), blue(this.col), alpha);
-    ellipse(this.pos.x, this.pos.y, this.size * (1 - t) * 1.8);
-    pop();
-  }
-  isDead(){return this.age >= this.life}
-}
-
-function updateParticles(){
-  for(let i=particles.length-1;i>=0;i--){
-    let p = particles[i]; p.update(deltaTime);
-    p.draw();
-    if(p.isDead()) particles.splice(i,1);
+  finished(){ return this.alpha <=0; }
+  show(){
+    noStroke();
+    fill(this.colorArr[0], this.colorArr[1], this.colorArr[2], this.alpha);
+    ellipse(this.pos.x, this.pos.y, 8);
   }
 }
 
-// Floating damage numbers
-class Floaty{
-  constructor(x,y,txt){ this.x=x; this.y=y; this.txt=txt; this.t=0; this.r=random(-0.6,0.6)}
-  update(dt){ this.t += dt/800; this.y -= dt/220; }
-  draw(){ push(); translate(this.x + sin(this.t*6)*6, this.y);
-    textAlign(CENTER); textSize(18 + sin(this.t*6)*3); fill(255, 220 - this.t*240);
-    stroke(0, 80); strokeWeight(3); text(this.txt, 0, 0);
-    pop(); }
+// UI buttons
+function createUI(){
+  const ui = document.getElementById('ui');
+  buildings.forEach((b,i)=>{
+    const btn = document.createElement('button');
+    btn.innerText = `${b.name} (${b.amount}) - ${b.baseCost} cookies`;
+    btn.onclick = ()=>{
+      if(cookies >= b.baseCost){
+        cookies -= b.baseCost;
+        b.amount++;
+        b.baseCost = floor(b.baseCost*1.15);
+        btn.innerText = `${b.name} (${b.amount}) - ${b.baseCost} cookies`;
+      }
+    };
+    ui.appendChild(btn);
+  });
+  const cpcBtn = document.createElement('button');
+  cpcBtn.innerText = `Upgrade Click (+1 CPC) - 50 cookies`;
+  cpcBtn.onclick = ()=>{
+    if(cookies >=50){
+      cookies -=50;
+      cookiesPerClick +=1;
+    }
+  };
+  ui.appendChild(cpcBtn);
 }
-function updateFloats(){ for(let i=floats.length-1;i>=0;i--){ floats[i].update(deltaTime); floats[i].draw(); if(floats[i].t>1.4) floats.splice(i,1);} }
 
-function mouseIsInRect(x,y,w,h){ return mouseX >= x && mouseX <= x+w && mouseY >= y && mouseY <= y+h; }
-
-function keyPressed(){
-  if(key === 'U' || key === 'u') showUpgrades = !showUpgrades;
-  if(key === 'R' || key === 'r') resetGame();
+function getCPS(){
+  let total = cookiesPerSecond;
+  for(let b of buildings) total += b.cps*b.amount;
+  return total;
 }
 
-function resetGame(){
-  player.gold = 0; player.dps = 0; player.clickPower = 1; player.critChance = 0.05; initEnemy(); initUpgrades(); particles = []; floats = [];
-}
-
-// tiny helper: constrain mimics p5's constrain but as function
-function min(a,b){ return a<b?a:b; }
-function max(a,b){ return a>b?a:b; }
-function constrain(v, a, b){ return v<a?a:(v>b?b:v); }
-
-// prevent context menu on right click
-window.addEventListener('contextmenu', e => e.preventDefault());
 </script>
+
 </body>
 </html>
